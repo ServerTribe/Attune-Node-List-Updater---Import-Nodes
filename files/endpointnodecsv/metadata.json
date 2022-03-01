@@ -1,0 +1,5 @@
+{
+    "key": "endpointnodecsv", 
+    "name": "Endpoint Node CSV", 
+    "type": "com.servertribe.attune.tuples.FileArchiveVersionedTuple"
+}

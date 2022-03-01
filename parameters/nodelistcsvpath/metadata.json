@@ -1,0 +1,6 @@
+{
+    "key": "nodelistcsvpath", 
+    "name": "Node List csv Path", 
+    "showInPlan": true, 
+    "type": "c.s.s.b.phv.Text"
+}

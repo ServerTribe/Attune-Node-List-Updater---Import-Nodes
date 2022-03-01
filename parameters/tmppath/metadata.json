@@ -1,0 +1,6 @@
+{
+    "key": "tmppath", 
+    "name": "tmp Path", 
+    "showInPlan": true, 
+    "type": "c.s.s.b.phv.Text"
+}

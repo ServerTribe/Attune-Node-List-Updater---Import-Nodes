@@ -1,0 +1,11 @@
+{
+    "archiveKey": "endpointnodecsv", 
+    "deployPath": "{tmpPath}", 
+    "enabled": true, 
+    "key": "deployendpointnodeslistcsvforimport", 
+    "name": "Deploy Endpoint Nodes List csv for Import", 
+    "osCredKey": "attunehostcredlinux", 
+    "serverKey": "attunehostlinux", 
+    "type": "com.servertribe.attune.tuples.StepPushDesignFileTuple", 
+    "unpack": false
+}

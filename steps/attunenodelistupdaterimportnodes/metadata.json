@@ -1,0 +1,18 @@
+{
+    "concurrency": 1, 
+    "enabled": true, 
+    "isBlueprint": true, 
+    "key": "attunenodelistupdaterimportnodes", 
+    "links": [
+        {
+            "order": 0, 
+            "stepKey": "deployendpointnodeslistcsvforimport"
+        }, 
+        {
+            "order": 100, 
+            "stepKey": "populateattunewithendpointnodes"
+        }
+    ], 
+    "name": "Attune Node List Updater - Import Nodes", 
+    "type": "com.servertribe.attune.tuples.StepGroupTuple"
+}

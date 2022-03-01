@@ -1,0 +1,168 @@
+# ================================
+# Declare Parameters
+# ================================
+file="{tmpPath}endpointNodes.csv"
+dateTime="$(date -d now +%F-%R)"
+declare -a ips=()
+declare -a hostnames=()
+declare -a domainNames=()
+declare -a operatingSystems=()
+
+
+# ================================
+# Functions
+# ================================
+
+function getCSVItems() {
+    csvFile="${1}"
+    column="${2}"
+    arr_csv=( $(tail $csvFile | cut -d ',' $column ) )
+    echo "${arr_csv[*]}"
+}
+
+function makeBuildPlacevalueImportNodesSql() {
+    dateTime=${1}
+    shift
+    hostnames=("$@")
+    for hostname in "${hostnames[@]}"
+    do
+        name="Imported: ${dateTime} - ${hostname}"
+        echo "(#$name#, #c.s.s.b.phv.WindowsServer#), "
+    done
+}
+
+function makeBuildPlacevalueServerImportNodesSql() {
+    dateTime=${1}
+    ip="${2}"
+    hostname="${3}"
+    domainName="${4}"
+    name="Imported: ${dateTime} - ${hostname}"
+    echo "( (SELECT id FROM ##BuildPlacevalue## WHERE name = #$name#), #$hostname#, #$ip#, #$domainName# ), "
+}
+
+function makeBuildPlacevalueServerWinImportNodesSql() {
+    dateTime=${1}
+    hostname="${2}"
+    name="Imported: ${dateTime} - ${hostname}"
+    echo "( (SELECT id FROM ##BuildPlacevalue## WHERE name = #$name#), 4 ), "
+}
+
+function makeBuildPlacevalueServerListItemSql() {
+    order=$(expr ${1} + 1)
+    dateTime=${2}
+    hostname="${3}"
+    serverName="Imported: ${dateTime} - ${hostname}"
+    listName="Imported: ${dateTime}"
+    echo "( $order , (SELECT id FROM ##BuildPlacevalue## WHERE name = #$serverName#), (SELECT id FROM ##BuildPlacevalue## WHERE name = #$listName#) ), "
+}
+
+# ================================
+# Main Script
+# ================================
+
+IFS=' ' read -ra ips <<< "$(getCSVItems $file -f1)"
+IFS=' ' read -ra hostnames <<< "$(getCSVItems $file -f2)"
+IFS=' ' read -ra domainNames <<< "$(getCSVItems $file -f3)"
+IFS=' ' read -ra operatingSystems <<< "$(getCSVItems $file -f4)"
+
+
+# ================================
+# Import Server Placevalues
+
+# create the sql to update the BuildPlacevalue table with the Server values.
+echo "# ================================"
+echo "Creating the BuildPlacevalue update sql to import the nodes..."
+insertBuildPlacevalueImportNodesSql="INSERT INTO ##BuildPlacevalue## (name, type) 
+VALUES "
+insertBuildPlacevalueImportNodesSql+="$(makeBuildPlacevalueImportNodesSql ${dateTime} ${hostnames[@]})"
+insertBuildPlacevalueImportNodesSql=${insertBuildPlacevalueImportNodesSql::-2}
+insertBuildPlacevalueImportNodesSql+=" ON CONFLICT DO NOTHING;"
+insertBuildPlacevalueImportNodesSql="${insertBuildPlacevalueImportNodesSql//##/\"}"
+Q="'"
+insertBuildPlacevalueImportNodesSql="${insertBuildPlacevalueImportNodesSql//#/$Q}"
+echo "$insertBuildPlacevalueImportNodesSql"
+echo "updating the BuildPlacevalue table..."
+echo $(echo "$insertBuildPlacevalueImportNodesSql" | psql)
+
+# create the sql to update the BuildPlacevalueServer table with the Server values.
+echo "# ================================"
+echo "Creating the BuildPlacevalueServer update sql for the Servers details.."
+insertBuildPlacevalueServerImportNodes="INSERT INTO ##BuildPlacevalueServer## (id, hostname, ip, domain) 
+VALUES "
+for i in "${!hostnames[@]}"
+do
+    insertBuildPlacevalueServerImportNodes+="$(makeBuildPlacevalueServerImportNodesSql ${dateTime} ${ips[$i]} ${hostnames[$i]} ${domainNames[$i]} ${operatingSystems[$i]})"
+done
+insertBuildPlacevalueServerImportNodes=${insertBuildPlacevalueServerImportNodes::-2}
+insertBuildPlacevalueServerImportNodes+=" ON CONFLICT DO NOTHING;"
+insertBuildPlacevalueServerImportNodes="${insertBuildPlacevalueServerImportNodes//##/\"}"
+Q="'"
+insertBuildPlacevalueServerImportNodes="${insertBuildPlacevalueServerImportNodes//#/$Q}"
+echo "$insertBuildPlacevalueServerImportNodes"
+echo "update the BuildPlacevalueServer table..."
+echo $(echo "$insertBuildPlacevalueServerImportNodes" | psql)
+
+# create the sql to update the BuildPlacevalueServerWin table with the Server values.
+echo "# ================================"
+echo "Creating the BuildPlacevalueServerWin update sql for the Server WinRm Types.."
+insertBuildPlacevalueServerWinImportNodes="INSERT INTO ##BuildPlacevalueServerWin## (id, ##winRmType##) 
+VALUES "
+for i in "${!hostnames[@]}"
+do
+    insertBuildPlacevalueServerWinImportNodes+="$(makeBuildPlacevalueServerWinImportNodesSql ${dateTime} ${hostnames[$i]})"
+done
+insertBuildPlacevalueServerWinImportNodes=${insertBuildPlacevalueServerWinImportNodes::-2}
+insertBuildPlacevalueServerWinImportNodes+=" ON CONFLICT DO NOTHING;"
+insertBuildPlacevalueServerWinImportNodes="${insertBuildPlacevalueServerWinImportNodes//##/\"}"
+Q="'"
+insertBuildPlacevalueServerWinImportNodes="${insertBuildPlacevalueServerWinImportNodes//#/$Q}"
+echo "$insertBuildPlacevalueServerWinImportNodes"
+echo "update the BuildPlacevalueServerWin table..."
+echo $(echo "$insertBuildPlacevalueServerWinImportNodes" | psql)
+
+
+# ================================
+# Create the list Placevalues
+
+# create the sql to update the BuildPlacevalue table with the new list.
+echo "# ================================"
+echo "Creating the BuildPlacevalue update sql.."
+insertBuildPlacevalueCreateListSql="INSERT INTO ##BuildPlacevalue## (name, type) 
+VALUES (#Imported: ${dateTime}#, #c.s.s.b.phv.ServerList#) ON CONFLICT DO NOTHING;"
+insertBuildPlacevalueCreateListSql="${insertBuildPlacevalueCreateListSql//##/\"}"
+Q="'"
+insertBuildPlacevalueCreateListSql="${insertBuildPlacevalueCreateListSql//#/$Q}"
+echo "$insertBuildPlacevalueCreateListSql"
+echo "updating the BuildPlacevalue table..."
+echo $(echo "$insertBuildPlacevalueCreateListSql" | psql)
+
+# create the sql to update the BuildPlacevalueServerList table with the new list.
+echo "# ================================"
+echo "Creating the BuildPlacevalueServerList update sql.."
+insertBuildPlacevalueServerListCreateListSql="INSERT INTO ##BuildPlacevalueServerList## (id) 
+VALUES ( (SELECT id FROM ##BuildPlacevalue## WHERE name = #Imported: ${dateTime}#) ) 
+ON CONFLICT DO NOTHING;"
+insertBuildPlacevalueServerListCreateListSql="${insertBuildPlacevalueServerListCreateListSql//##/\"}"
+Q="'"
+insertBuildPlacevalueServerListCreateListSql="${insertBuildPlacevalueServerListCreateListSql//#/$Q}"
+echo "$insertBuildPlacevalueServerListCreateListSql"
+echo "updating the BuildPlacevalueServerList table..."
+echo $(echo "$insertBuildPlacevalueServerListCreateListSql" | psql)
+
+# create the sql to update the BuildPlacevalueServerListItem table to populate the new list.
+echo "# ================================"
+echo "Creating the BuildPlacevalueServerListItem update sql to populate list.."
+insertBuildPlacevalueServerListItem="INSERT INTO ##BuildPlacevalueServerListItem## (##order##, ##serverId##, ##serverListId##) 
+VALUES "
+for i in "${!hostnames[@]}"
+do
+    insertBuildPlacevalueServerListItem+="$(makeBuildPlacevalueServerListItemSql ${i} ${dateTime} ${hostnames[$i]})"
+done
+insertBuildPlacevalueServerListItem=${insertBuildPlacevalueServerListItem::-2}
+insertBuildPlacevalueServerListItem+=" ON CONFLICT DO NOTHING;"
+insertBuildPlacevalueServerListItem="${insertBuildPlacevalueServerListItem//##/\"}"
+Q="'"
+insertBuildPlacevalueServerListItem="${insertBuildPlacevalueServerListItem//#/$Q}"
+echo "$insertBuildPlacevalueServerListItem"
+echo "update the insertBuildPlacevalueServerListItem table..."
+echo $(echo "$insertBuildPlacevalueServerListItem" | psql)
